@@ -18,6 +18,7 @@
 #define TOPIC_BUFFER_SIZE	(100)
 #define PAYLOAD_BUFFER_SIZE  (100)
 #define SLEEP 30e6
+#define SLEEPING 0 // 0 no deepsleep 1 delay without delay
 
 // init Debug telnet
 RemoteDebug Debug;
@@ -47,8 +48,15 @@ char * stringToChar(String str) {
 
 // fonction pour mettre en pause lESP
 void espSleeping(){
-  delay(500);
-  ESP.deepSleep(SLEEP);
+  if (SLEEPING == 1){
+    delay(5000);
+    ESP.deepSleep(SLEEP);
+  }
+  else
+  {
+    Serial.println("je ne dors pas!!");
+  }
+  
 }
 
 void setup_wifi() {
@@ -80,8 +88,11 @@ void setup_wifi() {
 }
 
 void callback(char* topic, byte* payload, unsigned int length) {
-   if(strcmp(topic,"upload") && payload[0]== '1'){
-        Serial.println("je vais télévérsé")
+   if(strcmp(topic,"upload") == 1 ){
+        Serial.println("je vais télévérsé");
+   }
+   else{
+     Serial.println("inverse!!!!!");
    }
 }
 
@@ -117,7 +128,6 @@ void setup() {
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
 
-  client.subscribe("upload")
 
   // initialisation de la librairie de debug
   Debug.begin("monEsp");  
@@ -131,6 +141,7 @@ void setup() {
   });
   server.begin();
 
+  client.subscribe("upload");
 }
 
 void loop() {
@@ -161,8 +172,20 @@ void loop() {
     Debug.println("request received");
     server.send(200, "text/plain", payload);
   });
-    client.publish(topic, payload);
 
-    espSleeping();
+      if(SLEEPING == 1){
+          unsigned long now = millis();
+        if (now - lastMsg > 2000)
+        {
+          lastMsg = now;
+        client.publish(topic, payload);
+        }
+      }
+      else{
+        client.publish(topic, payload);
+        espSleeping();
+
+      }
+
     
 }
