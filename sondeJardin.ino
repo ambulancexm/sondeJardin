@@ -207,8 +207,12 @@ void loop()
   // snprintf (payload, PAYLOAD_BUFFER_SIZE,"temp,%lf,pres,%lf,hydro,%d", temp,pres,analogRead(A0));
 
   // liste des souscriptions
-  client.subscribe("upload");
-  client.subscribe("sleeping");
+  // client.subscribe("upload");
+  // client.subscribe("sleeping");
+
+  // on souscrit à tous les topics
+  // TODO voir si ça n'encombre pas trop l'ESP
+  client.subscribe("#");
 
   if (sleeping == 1)
   {
