@@ -3,18 +3,33 @@
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BMP280.h>
+//OTA
+#include <WiFiUdp.h>
+#include <ArduinoOTA.h>
+#include <ESP8266WebServer.h>
+#include <RemoteDebug.h>
 
-// Update these with values suitable for your network.
+//constante
+#include "constante.h"
+
+// define 
 #define PROJECT "jardin"
-
-
 #define BMP280_I2C_ADDRESS  0x76
-
-WiFiClient espClient;
-PubSubClient client(espClient);
-unsigned long lastMsg = 0;
 #define TOPIC_BUFFER_SIZE	(100)
 #define PAYLOAD_BUFFER_SIZE  (100)
+#define SLEEP 30e6
+
+// init Debug telnet
+RemoteDebug Debug;
+// Set web server port number to 80
+ESP8266WebServer server(80);
+
+// init wifi
+WiFiClient espClient;
+PubSubClient client(espClient);
+
+//variable de mqtt
+unsigned long lastMsg = 0;
 char topic[TOPIC_BUFFER_SIZE];
 char payload[PAYLOAD_BUFFER_SIZE];
 int value = 0;
@@ -30,9 +45,10 @@ char * stringToChar(String str) {
   return tmp;
 }
 
+// fonction pour mettre en pause lESP
 void espSleeping(){
   delay(500);
-  ESP.deepSleep(5e6);
+  ESP.deepSleep(SLEEP);
 }
 
 void setup_wifi() {
@@ -64,7 +80,9 @@ void setup_wifi() {
 }
 
 void callback(char* topic, byte* payload, unsigned int length) {
-   
+   if(strcmp(topic,"upload") && payload[0]== '1'){
+        Serial.println("je vais télévérsé")
+   }
 }
 
 void reconnect() {
@@ -99,9 +117,25 @@ void setup() {
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
 
+  client.subscribe("upload")
+
+  // initialisation de la librairie de debug
+  Debug.begin("monEsp");  
+  ArduinoOTA.setHostname("test_sonde_jardin"); // on donne une petit nom a notre module
+  ArduinoOTA.begin(); // initialisation de l'OTA
+  // initialisation du serveur
+  server.on("/", [](){
+  // a chaque requete recue, on envoie un message de debug
+    Debug.println("request received");
+    server.send(200, "text/plain", "ok :)");
+  });
+  server.begin();
+
 }
 
 void loop() {
+     
+  Debug.handle();
   char mach[25];
   int line = random(1,20);
   strcpy(mach,stringToChar(WiFi.macAddress()));
@@ -117,8 +151,16 @@ void loop() {
   float pres = bmp280.readPressure();      // get pressure
   //float valut = 1003.5;
   
+  server.handleClient();
+
+
   snprintf (topic, TOPIC_BUFFER_SIZE,"%s/%d/%s/",PROJECT,line,mach); 
   snprintf (payload, PAYLOAD_BUFFER_SIZE,"temp,%lf,pres,%lf,hydro,%d", temp,pres,analogRead(A0));
+  server.on("/jardin", [](){
+  // a chaque requete recue, on envoie un message de debug
+    Debug.println("request received");
+    server.send(200, "text/plain", payload);
+  });
     client.publish(topic, payload);
 
     espSleeping();
