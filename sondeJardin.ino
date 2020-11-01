@@ -8,10 +8,6 @@
 #define PROJECT "jardin"
 
 
-const char* ssid = "thomas";
-const char* password = "tiliatilia";
-const char* mqtt_server = "176.166.1.64";
-
 #define BMP280_I2C_ADDRESS  0x76
 
 WiFiClient espClient;
