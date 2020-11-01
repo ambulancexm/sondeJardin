@@ -18,7 +18,7 @@
 #define TOPIC_BUFFER_SIZE	(100)
 #define PAYLOAD_BUFFER_SIZE  (100)
 #define SLEEP 30e6
-#define SLEEPING 0 // 0 no deepsleep 1 delay without delay
+int sleeping = 0; // 0 no deepsleep 1 delay without delay
 
 // init Debug telnet
 RemoteDebug Debug;
@@ -35,6 +35,19 @@ char topic[TOPIC_BUFFER_SIZE];
 char payload[PAYLOAD_BUFFER_SIZE];
 int value = 0;
 
+void publishModel(PubSubClient client, char* name, int value){
+  snprintf (topic, TOPIC_BUFFER_SIZE,"%s/%d/%s/%s",PROJECT,line,mach,name); 
+  snprintf (payload, PAYLOAD_BUFFER_SIZE,"%d", value);
+  client.publish(topic,payload);
+}
+
+void publishModel(PubSubClient client, char* name, float value){
+  snprintf (topic, TOPIC_BUFFER_SIZE,"%s/%d/%s/%s",PROJECT,line,mach,name); 
+  snprintf (payload, PAYLOAD_BUFFER_SIZE,"%lf", value);
+  client.publish(topic,payload);
+}
+
+
 
 // convertisseur string char
 char * stringToChar(String str) {
@@ -48,7 +61,7 @@ char * stringToChar(String str) {
 
 // fonction pour mettre en pause lESP
 void espSleeping(){
-  if (SLEEPING == 1){
+  if (sleeping == 0){
     delay(5000);
     ESP.deepSleep(SLEEP);
   }
@@ -98,6 +111,14 @@ void callback(char* topic, byte* payload, unsigned int length) {
    }
    else{
      Serial.println("inverse!!!!!");
+   }
+
+   if(strcmp(topic,"sleeping") == 0 && payload[0] == '1'){
+      sleeping = 1;
+
+   }
+   else{
+      sleeping =0 ;
    }
   
   
@@ -169,14 +190,17 @@ void loop() {
   //float valut = 1003.5;
   
   server.handleClient();
-
-
-  snprintf (topic, TOPIC_BUFFER_SIZE,"%s/%d/%s/",PROJECT,line,mach); 
+  snprintf (topic, TOPIC_BUFFER_SIZE,"%s/%d/%s/temp",PROJECT,line,mach); 
   snprintf (payload, PAYLOAD_BUFFER_SIZE,"temp,%lf,pres,%lf,hydro,%d", temp,pres,analogRead(A0));
   
-  client.subscribe("upload");
 
-      if(SLEEPING == 1){
+
+
+  // liste des souscriptions
+  client.subscribe("upload");
+  client.subscribe("sleeping");
+
+      if(sleeping == 1){
           unsigned long now = millis();
         if (now - lastMsg > 2000)
         {
@@ -185,11 +209,10 @@ void loop() {
         Serial.println("on ecrit");
         }
       }
-      // else{
-      //   client.publish(topic, payload);
-      //   espSleeping();
-
-      // }
+      else{
+        client.publish(topic, payload);
+        espSleeping();
+      }
 
     ArduinoOTA.handle();
 }
