@@ -52,10 +52,10 @@ void espSleeping(){
     delay(5000);
     ESP.deepSleep(SLEEP);
   }
-  else
-  {
-    Serial.println("je ne dors pas!!");
-  }
+  // else
+  // {
+  //   Serial.println("je ne dors pas!!");
+  // }
   
 }
 
@@ -88,12 +88,19 @@ void setup_wifi() {
 }
 
 void callback(char* topic, byte* payload, unsigned int length) {
-   if(strcmp(topic,"upload") == 1 ){
+
+    Serial.print("payload : ");
+    Serial.println(payload[0]);
+
+   if(strcmp(topic,"upload") == 0 && payload[0] == '1'){
         Serial.println("je vais télévérsé");
+
    }
    else{
      Serial.println("inverse!!!!!");
    }
+  
+  
 }
 
 void reconnect() {
@@ -141,7 +148,6 @@ void setup() {
   });
   server.begin();
 
-  client.subscribe("upload");
 }
 
 void loop() {
@@ -167,11 +173,8 @@ void loop() {
 
   snprintf (topic, TOPIC_BUFFER_SIZE,"%s/%d/%s/",PROJECT,line,mach); 
   snprintf (payload, PAYLOAD_BUFFER_SIZE,"temp,%lf,pres,%lf,hydro,%d", temp,pres,analogRead(A0));
-  server.on("/jardin", [](){
-  // a chaque requete recue, on envoie un message de debug
-    Debug.println("request received");
-    server.send(200, "text/plain", payload);
-  });
+  
+  client.subscribe("upload");
 
       if(SLEEPING == 1){
           unsigned long now = millis();
@@ -179,13 +182,14 @@ void loop() {
         {
           lastMsg = now;
         client.publish(topic, payload);
+        Serial.println("on ecrit");
         }
       }
-      else{
-        client.publish(topic, payload);
-        espSleeping();
+      // else{
+      //   client.publish(topic, payload);
+      //   espSleeping();
 
-      }
+      // }
 
-    
+    ArduinoOTA.handle();
 }
