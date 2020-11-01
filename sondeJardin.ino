@@ -12,11 +12,11 @@
 //constante
 #include "constante.h"
 
-// define 
+// define
 #define PROJECT "jardin"
-#define BMP280_I2C_ADDRESS  0x76
-#define TOPIC_BUFFER_SIZE	(100)
-#define PAYLOAD_BUFFER_SIZE  (100)
+#define BMP280_I2C_ADDRESS 0x76
+#define TOPIC_BUFFER_SIZE (100)
+#define PAYLOAD_BUFFER_SIZE (100)
 #define SLEEP 30e6
 int sleeping = 0; // 0 no deepsleep 1 delay without delay
 
@@ -35,33 +35,37 @@ char topic[TOPIC_BUFFER_SIZE];
 char payload[PAYLOAD_BUFFER_SIZE];
 int value = 0;
 
-void publishModel(PubSubClient client, char* name, int value){
-  snprintf (topic, TOPIC_BUFFER_SIZE,"%s/%d/%s/%s",PROJECT,line,mach,name); 
-  snprintf (payload, PAYLOAD_BUFFER_SIZE,"%d", value);
-  client.publish(topic,payload);
+void publishModel(PubSubClient &client, char *name, char *mach, int value)
+{
+  snprintf(topic, TOPIC_BUFFER_SIZE, "%s/%d/%s/%s", PROJECT, random(1, 20), mach, name);
+  snprintf(payload, PAYLOAD_BUFFER_SIZE, "%d", value);
+  client.publish(topic, payload);
 }
 
-void publishModel(PubSubClient client, char* name, float value){
-  snprintf (topic, TOPIC_BUFFER_SIZE,"%s/%d/%s/%s",PROJECT,line,mach,name); 
-  snprintf (payload, PAYLOAD_BUFFER_SIZE,"%lf", value);
-  client.publish(topic,payload);
+void publishModel(PubSubClient &client, char *name, char *mach, float value)
+{
+  snprintf(topic, TOPIC_BUFFER_SIZE, "%s/%d/%s/%s", PROJECT, random(1, 20), mach, name);
+  snprintf(payload, PAYLOAD_BUFFER_SIZE, "%lf", value);
+  client.publish(topic, payload);
 }
-
-
 
 // convertisseur string char
-char * stringToChar(String str) {
-  char tmp[str.length()+1];
-  for (int i =0; i< str.length(); i++){
+char *stringToChar(String str)
+{
+  char tmp[str.length() + 1];
+  for (int i = 0; i < str.length(); i++)
+  {
     tmp[i] = str[i];
   }
-  tmp[str.length()] ='\0';
+  tmp[str.length()] = '\0';
   return tmp;
 }
 
 // fonction pour mettre en pause lESP
-void espSleeping(){
-  if (sleeping == 0){
+void espSleeping()
+{
+  if (sleeping == 0)
+  {
     delay(5000);
     ESP.deepSleep(SLEEP);
   }
@@ -69,10 +73,10 @@ void espSleeping(){
   // {
   //   Serial.println("je ne dors pas!!");
   // }
-  
 }
 
-void setup_wifi() {
+void setup_wifi()
+{
 
   delay(10);
   // We start by connecting to a WiFi network
@@ -81,9 +85,13 @@ void setup_wifi() {
   Serial.println(ssid);
 
   WiFi.begin(ssid, password);
-  int cpt= 0;
-  while (WiFi.status() != WL_CONNECTED) {
-    if(cpt > 25){espSleeping();}
+  int cpt = 0;
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    if (cpt > 25)
+    {
+      espSleeping();
+    }
     delay(500);
     Serial.print(".");
     cpt++;
@@ -97,46 +105,50 @@ void setup_wifi() {
   Serial.println(WiFi.localIP());
   Serial.println("adresse Mac");
   Serial.println(WiFi.macAddress());
-  
 }
 
-void callback(char* topic, byte* payload, unsigned int length) {
+void callback(char *topic, byte *payload, unsigned int length)
+{
 
-    Serial.print("payload : ");
-    Serial.println(payload[0]);
+  Serial.print("payload : ");
+  Serial.println(payload[0]);
 
-   if(strcmp(topic,"upload") == 0 && payload[0] == '1'){
-        Serial.println("je vais télévérsé");
+  if (strcmp(topic, "upload") == 0 && payload[0] == '1')
+  {
+    Serial.println("je vais télévérsé");
+  }
+  else
+  {
+    Serial.println("inverse!!!!!");
+  }
 
-   }
-   else{
-     Serial.println("inverse!!!!!");
-   }
-
-   if(strcmp(topic,"sleeping") == 0 && payload[0] == '1'){
-      sleeping = 1;
-
-   }
-   else{
-      sleeping =0 ;
-   }
-  
-  
+  if (strcmp(topic, "sleeping") == 0 && payload[0] == '1')
+  {
+    sleeping = 1;
+  }
+  else
+  {
+    sleeping = 0;
+  }
 }
 
-void reconnect() {
+void reconnect()
+{
   int checkNum = 0;
   // Loop until we're reconnected
-  while (!client.connected()) {
+  while (!client.connected())
+  {
     Serial.print("Attempting MQTT connection...");
-    
+
     // Attempt to connect
-    if (client.connect("monesp8266")) {
+    if (client.connect("monesp8266"))
+    {
       Serial.println("connected");
-      
-     
-    } else {
-      if(checkNum > 5){
+    }
+    else
+    {
+      if (checkNum > 5)
+      {
         espSleeping();
       }
       Serial.print("failed, rc=");
@@ -149,70 +161,75 @@ void reconnect() {
   }
 }
 
-void setup() {
-  pinMode(BUILTIN_LED, OUTPUT);     // Initialize the BUILTIN_LED pin as an output
+void setup()
+{
+  pinMode(BUILTIN_LED, OUTPUT); // Initialize the BUILTIN_LED pin as an output
   Serial.begin(115200);
   setup_wifi();
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
 
-
   // initialisation de la librairie de debug
-  Debug.begin("monEsp");  
+  Debug.begin("monEsp");
   ArduinoOTA.setHostname("test_sonde_jardin"); // on donne une petit nom a notre module
-  ArduinoOTA.begin(); // initialisation de l'OTA
+  ArduinoOTA.begin();                          // initialisation de l'OTA
   // initialisation du serveur
-  server.on("/", [](){
-  // a chaque requete recue, on envoie un message de debug
+  server.on("/", []() {
+    // a chaque requete recue, on envoie un message de debug
     Debug.println("request received");
     server.send(200, "text/plain", "ok :)");
   });
   server.begin();
-
 }
 
-void loop() {
-     
+void loop()
+{
+
   Debug.handle();
   char mach[25];
-  int line = random(1,20);
-  strcpy(mach,stringToChar(WiFi.macAddress()));
-   
-  if (!client.connected()) {
+  int line = random(1, 20);
+  strcpy(mach, stringToChar(WiFi.macAddress()));
+
+  if (!client.connected())
+  {
     reconnect();
   }
   client.loop();
-  Adafruit_BMP280  bmp280;
-  
+  Adafruit_BMP280 bmp280;
+
   bmp280.begin(BMP280_I2C_ADDRESS);
-  float temp = bmp280.readTemperature();   // get temperature
-  float pres = bmp280.readPressure();      // get pressure
+  float temp = bmp280.readTemperature(); // get temperature
+  float pres = bmp280.readPressure();    // get pressure
   //float valut = 1003.5;
-  
+
   server.handleClient();
-  snprintf (topic, TOPIC_BUFFER_SIZE,"%s/%d/%s/temp",PROJECT,line,mach); 
-  snprintf (payload, PAYLOAD_BUFFER_SIZE,"temp,%lf,pres,%lf,hydro,%d", temp,pres,analogRead(A0));
-  
-
-
+  // snprintf (topic, TOPIC_BUFFER_SIZE,"%s/%d/%s/temp",PROJECT,line,mach);
+  // snprintf (payload, PAYLOAD_BUFFER_SIZE,"temp,%lf,pres,%lf,hydro,%d", temp,pres,analogRead(A0));
 
   // liste des souscriptions
   client.subscribe("upload");
   client.subscribe("sleeping");
 
-      if(sleeping == 1){
-          unsigned long now = millis();
-        if (now - lastMsg > 2000)
-        {
-          lastMsg = now;
-        client.publish(topic, payload);
-        Serial.println("on ecrit");
-        }
-      }
-      else{
-        client.publish(topic, payload);
-        espSleeping();
-      }
+  if (sleeping == 1)
+  {
+    unsigned long now = millis();
+    if (now - lastMsg > 2000)
+    {
+      lastMsg = now;
 
-    ArduinoOTA.handle();
+      // client.publish(topic, payload);
+
+      Serial.println("on ecrit");
+    }
+  }
+  else
+  {
+    publishModel(client, "temp", mach, temp);
+    publishModel(client, "hydro/terre", mach,analogRead(A0) );
+    publishModel(client, "presAtmo", mach, pres);
+    // client.publish(topic, payload);
+    espSleeping();
+  }
+
+  ArduinoOTA.handle();
 }
