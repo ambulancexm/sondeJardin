@@ -13,12 +13,15 @@
 #include "constante.h"
 
 // define
+#define DEBUG
 #define PROJECT "jardin"
 #define BMP280_I2C_ADDRESS 0x76
 #define TOPIC_BUFFER_SIZE (100)
 #define PAYLOAD_BUFFER_SIZE (100)
 #define SLEEP 30e6
-int sleeping = 0; // 0 no deepsleep 1 delay without delay
+#define NBLOOPCONNECTWIFI 30
+#define WILLTOPIC "status/"
+int sleeping = 1; // 0 no deepsleep 
 
 // init Debug telnet
 RemoteDebug Debug;
@@ -28,7 +31,7 @@ ESP8266WebServer server(80);
 // init wifi
 WiFiClient espClient;
 PubSubClient client(espClient);
-
+// PubSubClient client();
 //variable de mqtt
 unsigned long lastMsg = 0;
 char topic[TOPIC_BUFFER_SIZE];
@@ -61,75 +64,85 @@ char *stringToChar(String str)
   return tmp;
 }
 
-// fonction pour mettre en pause lESP
+// fonction pour mettre en pause l'ESP
 void espSleeping()
 {
-  if (sleeping == 0)
+  if (sleeping == 1)
   {
     delay(5000);
     ESP.deepSleep(SLEEP);
   }
-  // else
-  // {
-  //   Serial.println("je ne dors pas!!");
-  // }
+  
 }
 
 void setup_wifi()
 {
-
   delay(10);
   // We start by connecting to a WiFi network
+  #ifdef DEBUG
   Serial.println();
   Serial.print("Connecting to ");
   Serial.println(ssid);
+  #endif
 
   WiFi.begin(ssid, password);
   int cpt = 0;
   while (WiFi.status() != WL_CONNECTED)
   {
-    if (cpt > 25)
+    if (cpt > NBLOOPCONNECTWIFI)
     {
       espSleeping();
     }
     delay(500);
+    #ifdef DEBUG
     Serial.print(".");
+    #endif
     cpt++;
   }
 
   randomSeed(micros());
-
+  #ifdef DEBUG
   Serial.println("");
   Serial.println("WiFi connected");
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
   Serial.println("adresse Mac");
   Serial.println(WiFi.macAddress());
+  #endif
 }
 
 void callback(char *topic, byte *payload, unsigned int length)
 {
+  // topic upload
+    if (strcmp(topic, "upload") == 0 && payload[0] == '1'){
+        unsigned int delaiBeforeLoopEnd = 60000;
+        #ifdef DEBUG
+        Serial.println("je vais télévérsé");
+        #endif
+        unsigned long now = millis();
+        if (now - lastMsg > delaiBeforeLoopEnd)
+        {
+          lastMsg = now;
+          ArduinoOTA.handle();
+          #ifdef DEBUG
+          Serial.println("on attend");
+        #endif
+        }
+        #ifdef DEBUG
+        Serial.println("j'ai reçu le upload");
+        #endif
+    }else{
+        #ifdef DEBUG
+        Serial.println("inverse!!!!!");
+        #endif
+    }
 
-  Serial.print("payload : ");
-  Serial.println(payload[0]);
-
-  if (strcmp(topic, "upload") == 0 && payload[0] == '1')
-  {
-    Serial.println("je vais télévérsé");
-  }
-  else
-  {
-    Serial.println("inverse!!!!!");
-  }
-
-  if (strcmp(topic, "sleeping") == 0 && payload[0] == '1')
-  {
-    sleeping = 1;
-  }
-  else
-  {
-    sleeping = 0;
-  }
+    // topic sleeping
+    if (strcmp(topic, "sleeping") == 0 && payload[0] == '1'){
+        sleeping = 1;
+    }else{
+        sleeping = 0;
+    }
 }
 
 void reconnect()
@@ -138,12 +151,16 @@ void reconnect()
   // Loop until we're reconnected
   while (!client.connected())
   {
+    #ifdef DEBUG
     Serial.print("Attempting MQTT connection...");
+        #endif
 
     // Attempt to connect
-    if (client.connect("monesp8266"))
+    if (client.connect("monesp8266","login","pwd"))
     {
+      #ifdef DEBUG
       Serial.println("connected");
+        #endif
     }
     else
     {
@@ -151,9 +168,11 @@ void reconnect()
       {
         espSleeping();
       }
+      #ifdef DEBUG
       Serial.print("failed, rc=");
       Serial.print(client.state());
       Serial.println(" try again in 5 seconds");
+        #endif
       // Wait 5 seconds before retrying
       checkNum++;
       delay(5000);
@@ -166,6 +185,7 @@ void setup()
   pinMode(BUILTIN_LED, OUTPUT); // Initialize the BUILTIN_LED pin as an output
   Serial.begin(115200);
   setup_wifi();
+  // client.setClient(espClient);
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
 
@@ -200,40 +220,23 @@ void loop()
   bmp280.begin(BMP280_I2C_ADDRESS);
   float temp = bmp280.readTemperature(); // get temperature
   float pres = bmp280.readPressure();    // get pressure
-  //float valut = 1003.5;
+  
 
   server.handleClient();
-  // snprintf (topic, TOPIC_BUFFER_SIZE,"%s/%d/%s/temp",PROJECT,line,mach);
-  // snprintf (payload, PAYLOAD_BUFFER_SIZE,"temp,%lf,pres,%lf,hydro,%d", temp,pres,analogRead(A0));
-
-  // liste des souscriptions
-  // client.subscribe("upload");
-  // client.subscribe("sleeping");
-
+  
   // on souscrit à tous les topics
   // TODO voir si ça n'encombre pas trop l'ESP
   client.subscribe("#");
+  // test de flag
 
-  if (sleeping == 1)
-  {
-    unsigned long now = millis();
-    if (now - lastMsg > 2000)
-    {
-      lastMsg = now;
-
-      // client.publish(topic, payload);
-
-      Serial.println("on ecrit");
-    }
-  }
-  else
-  {
-    publishModel(client, "temp", mach, temp);
-    publishModel(client, "hydro/terre", mach,analogRead(A0) );
-    publishModel(client, "presAtmo", mach, pres);
-    // client.publish(topic, payload);
-    espSleeping();
-  }
+  
+  // list des publish
+  publishModel(client, "temp", mach, temp);
+  publishModel(client, "hydroTerre", mach,analogRead(A0) );
+  publishModel(client, "presAtmo", mach, pres);
+  client.subscribe("upload",1);
+  espSleeping();
+  
 
   ArduinoOTA.handle();
 }
