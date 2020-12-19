@@ -1,8 +1,25 @@
+
+
+// sonde température
+#include <DallasTemperature.h>
+#include <OneWire.h>
+#define ONE_WIRE_BUS D2
+
+// Setup a oneWire instance to communicate with any OneWire devices (not just Maxim/Dallas temperature ICs)
+OneWire oneWire(ONE_WIRE_BUS);
+
+// Pass our oneWire reference to Dallas Temperature. 
+DallasTemperature sensors(&oneWire);
+
 #include <ESP8266WiFi.h>
+
 #include <PubSubClient.h>
-#include <Wire.h>
+
+
+
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BMP280.h>
+
 //OTA
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
@@ -13,14 +30,52 @@
 #include "constante.h"
 
 // define
-#define DEBUG
-#define PROJECT "jardin"
-#define BMP280_I2C_ADDRESS 0x76
+#define DEBUG 0
+#define PROJECT "campingCar"
+#define BMP280_I2C_ADDRESS 0x76 // valeur de l'adress I2C du capteur
 #define TOPIC_BUFFER_SIZE (100)
 #define PAYLOAD_BUFFER_SIZE (100)
-#define SLEEP 30e6
+#define SLEEP 15 // Temps de sommeil en minute
 #define NBLOOPCONNECTWIFI 30
 #define WILLTOPIC "status/"
+#define LINE 1
+
+/**
+ * minute est un long qui attend un nomde de minute
+ * si il est inferieur ou egal à 0 la valeur par defaut
+ * est de 30 minnutes
+ */
+unsigned long minuteToSecond(long minute);
+
+/**
+ * generateur de fake line
+ */
+int getLine();
+
+/**
+ * creation d'un publish 
+ * construction du topic avec le modèle :
+ * projet,ligne,adresseMac,nom du topic
+ * creation de la payload
+ * value en int
+ * 
+ */
+void publishModel(PubSubClient &client, char *name, char *mach, int value);
+void publishModel(PubSubClient &client, char *name, char *mach, float value);
+
+/**
+ * convertisseur string char
+ */
+char *stringToChar(String str);
+
+unsigned long minuteToSecond(long minute){
+  if(minute > 0){
+    return (minute * 6e7);
+  }else
+    return 1.8e9;
+}
+
+
 int sleeping = 1; // 0 no deepsleep 
 
 // init Debug telnet
@@ -38,16 +93,21 @@ char topic[TOPIC_BUFFER_SIZE];
 char payload[PAYLOAD_BUFFER_SIZE];
 int value = 0;
 
-void publishModel(PubSubClient &client, char *name, char *mach, int value)
-{
-  snprintf(topic, TOPIC_BUFFER_SIZE, "%s/%d/%s/%s", PROJECT, random(1, 20), mach, name);
+int getLine(){
+  if(LINE == 0){
+    return random(-20, -1);
+  }
+  return LINE;
+}
+
+void publishModel(PubSubClient &client, char *name, char *mach, int value){  
+  snprintf(topic, TOPIC_BUFFER_SIZE, "%s/%d/%s/%s", PROJECT, getLine(), mach, name);
   snprintf(payload, PAYLOAD_BUFFER_SIZE, "%d", value);
   client.publish(topic, payload);
 }
 
-void publishModel(PubSubClient &client, char *name, char *mach, float value)
-{
-  snprintf(topic, TOPIC_BUFFER_SIZE, "%s/%d/%s/%s", PROJECT, random(1, 20), mach, name);
+void publishModel(PubSubClient &client, char *name, char *mach, float value){
+  snprintf(topic, TOPIC_BUFFER_SIZE, "%s/%d/%s/%s", PROJECT, getLine(), mach, name);
   snprintf(payload, PAYLOAD_BUFFER_SIZE, "%lf", value);
   client.publish(topic, payload);
 }
@@ -70,7 +130,7 @@ void espSleeping()
   if (sleeping == 1)
   {
     delay(5000);
-    ESP.deepSleep(SLEEP);
+    ESP.deepSleep(minuteToSecond(SLEEP));
   }
   
 }
@@ -186,7 +246,7 @@ void setup()
   Serial.begin(115200);
   setup_wifi();
   // client.setClient(espClient);
-  client.setServer(mqtt_server, 1883);
+  client.setServer(mqtt_server, mqtt_port);
   client.setCallback(callback);
 
   // initialisation de la librairie de debug
@@ -200,6 +260,7 @@ void setup()
     server.send(200, "text/plain", "ok :)");
   });
   server.begin();
+  sensors.begin();
 }
 
 void loop()
@@ -221,20 +282,23 @@ void loop()
   float temp = bmp280.readTemperature(); // get temperature
   float pres = bmp280.readPressure();    // get pressure
   
+  sensors.requestTemperatures();
+  
 
   server.handleClient();
   
   // on souscrit à tous les topics
   // TODO voir si ça n'encombre pas trop l'ESP
-  client.subscribe("#");
+  // client.subscribe("#");
   // test de flag
-
+  int tempTest = random(-10,35);
   
   // list des publish
-  publishModel(client, "temp", mach, temp);
-  publishModel(client, "hydroTerre", mach,analogRead(A0) );
-  publishModel(client, "presAtmo", mach, pres);
-  client.subscribe("upload",1);
+  publishModel(client, "sensor/campingcar/temp/interieur", mach,sensors.getTempCByIndex(0));
+//  publishModel(client, "hydroTerre", mach,analogRead(A0) );
+//  publishModel(client, "presAtmo", mach, pres);
+    //publishModel(client, "fakeIot",mach , tempTest);
+  //client.subscribe("upload",1);
   espSleeping();
   
 
