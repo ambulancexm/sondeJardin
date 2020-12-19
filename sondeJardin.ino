@@ -176,25 +176,16 @@ void callback(char *topic, byte *payload, unsigned int length)
   // topic upload
     if (strcmp(topic, "upload") == 0 && payload[0] == '1'){
         unsigned int delaiBeforeLoopEnd = 60000;
-        #ifdef DEBUG
-        Serial.println("je vais télévérsé");
-        #endif
         unsigned long now = millis();
         if (now - lastMsg > delaiBeforeLoopEnd)
         {
           lastMsg = now;
           ArduinoOTA.handle();
-          #ifdef DEBUG
           Serial.println("on attend");
-        #endif
         }
-        #ifdef DEBUG
-        Serial.println("j'ai reçu le upload");
-        #endif
+        
     }else{
-        #ifdef DEBUG
         Serial.println("inverse!!!!!");
-        #endif
     }
 
     // topic sleeping
