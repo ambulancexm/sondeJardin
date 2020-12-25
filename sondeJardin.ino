@@ -30,12 +30,12 @@ DallasTemperature sensors(&oneWire);
 #include "constante.h"
 
 // define
-#define DEBUG 0
+#define DEBUG 1
 #define PROJECT "campingCar"
 #define BMP280_I2C_ADDRESS 0x76 // valeur de l'adress I2C du capteur
 #define TOPIC_BUFFER_SIZE (100)
 #define PAYLOAD_BUFFER_SIZE (100)
-#define SLEEP 15 // Temps de sommeil en minute
+#define SLEEP 0.5 // Temps de sommeil en minute
 #define NBLOOPCONNECTWIFI 30
 #define WILLTOPIC "status/"
 #define LINE 1
@@ -71,6 +71,7 @@ char *stringToChar(String str);
 unsigned long minuteToSecond(long minute){
   if(minute > 0){
     return (minute * 6e7);
+
   }else
     return 1.8e9;
 }
@@ -130,7 +131,8 @@ void espSleeping()
   if (sleeping == 1)
   {
     delay(5000);
-    ESP.deepSleep(minuteToSecond(SLEEP));
+    // ESP.deepSleep(minuteToSecond(SLEEP));
+    ESP.deepSleep(6e7);
   }
   
 }
@@ -174,25 +176,18 @@ void setup_wifi()
 void callback(char *topic, byte *payload, unsigned int length)
 {
   // topic upload
-    if (strcmp(topic, "upload") == 0 && payload[0] == '1'){
+    while (strcmp(topic, "retour/nodemcu") == 1 ){
         unsigned int delaiBeforeLoopEnd = 60000;
         unsigned long now = millis();
         if (now - lastMsg > delaiBeforeLoopEnd)
         {
           lastMsg = now;
           ArduinoOTA.handle();
-          Serial.println("on attend");
+          if (lastMsg%5 == 0){
+            Serial.println("on attend");
+          }
         }
         
-    }else{
-        Serial.println("inverse!!!!!");
-    }
-
-    // topic sleeping
-    if (strcmp(topic, "sleeping") == 0 && payload[0] == '1'){
-        sleeping = 1;
-    }else{
-        sleeping = 0;
     }
 }
 
@@ -209,10 +204,10 @@ void reconnect()
     // Attempt to connect
     if (client.connect("monesp8266","login","pwd"))
     {
-      #ifdef DEBUG
+     
       Serial.println("connected");
-        #endif
-    }
+      client.publish("request","update");
+      
     else
     {
       if (checkNum > 5)
@@ -275,6 +270,7 @@ void loop()
   
   sensors.requestTemperatures();
   
+
 
   server.handleClient();
   
